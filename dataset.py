@@ -45,38 +45,32 @@ class CocoDataset(Dataset):
     def __len__(self):
         return len(self.imgIds)
 
-    # return shape: (height, width)
+    # return shape: (height, width) with the gaussian shape at x, y
     def generate_gaussian_heatmap(self, shape, joint, sigma):
         x, y = joint
-        grid_x = np.tile(np.arange(shape[1]), (shape[0], 1))
-        grid_y = np.tile(np.arange(shape[0]), (shape[1], 1)).transpose()
+        grid_x = np.tile(np.arange(shape[1]), (shape[0], 1)) # matrix shape[0] shape [1]
+        grid_y = np.tile(np.arange(shape[0]), (shape[1], 1)).transpose() # matrix
         grid_distance = (grid_x - x) ** 2 + (grid_y - y) ** 2
         gaussian_heatmap = np.exp(-0.5 * grid_distance / sigma**2)
         return gaussian_heatmap
 
     def generate_heatmaps(self, img, poses, heatmap_sigma):
-        heatmaps = np.zeros((0,) + img.shape[:-1])
-        sum_heatmap = np.zeros(img.shape[:-1])
+        heatmaps = np.zeros((0,) + img.shape[:-1]) # ignore last dim (0, w, h)
+        sum_heatmap = np.zeros(img.shape[:-1]) # (w,h) use for background
         for joint_index in range(len(JointType)):
             heatmap = np.zeros(img.shape[:-1])
             for pose in poses:
-                if pose[joint_index, 2] > 0:
+                if pose[joint_index, 2] > 0: # if visible
                     jointmap = self.generate_gaussian_heatmap(img.shape[:-1], pose[joint_index][:2], heatmap_sigma)
-                    heatmap[jointmap > heatmap] = jointmap[jointmap > heatmap]
+                    heatmap[jointmap > heatmap] = jointmap[jointmap > heatmap] # put gaussion point on the heatmap without affect other points
                     sum_heatmap[jointmap > sum_heatmap] = jointmap[jointmap > sum_heatmap]
             heatmaps = np.vstack((heatmaps, heatmap.reshape((1,) + heatmap.shape)))
         bg_heatmap = 1 - sum_heatmap  # background channel
         heatmaps = np.vstack((heatmaps, bg_heatmap[None]))
-        '''
-        We take the maximum of the confidence maps insteaof the average so that thprecision of close by peaks remains distinct, 
-        as illus- trated in the right figure. At test time, we predict confidence maps (as shown in the first row of Fig. 4), 
-        and obtain body part candidates by performing non-maximum suppression.
-        At test time, we predict confidence maps (as shown in the first row of Fig. 4), 
-        and obtain body part candidates by performing non-maximum suppression.
-        '''
+
         return heatmaps.astype('f')
 
-    # return shape: (2, height, width)
+    # return shape: (2, height, width) 2 -> vector of each point
     def generate_constant_paf(self, shape, joint_from, joint_to, paf_width):
         if np.array_equal(joint_from, joint_to): # same joint
             return np.zeros((2,) + shape[:-1])
@@ -115,7 +109,7 @@ class CocoDataset(Dataset):
 
                     paf += limb_paf
 
-            paf[paf_flags > 0] /= paf_flags[paf_flags > 0] # 求均值
+            paf[paf_flags > 0] /= paf_flags[paf_flags > 0] # normalize because many paf may stack
             pafs = np.vstack((pafs, paf))
         return pafs.astype('f')
 
@@ -135,8 +129,8 @@ class CocoDataset(Dataset):
         return img, valid_annotations_for_img
 
     def parse_coco_annotation(self, annotations):
-        """coco annotation dataのアノテーションをposes配列に変換"""
-        '''将coco注释数据注释转换为姿势数组'''
+        # input is a list of annotation (each for 1 person)
+        # output: poses: np.array( stack of (num join *3) (pos x,y , visible)
         poses = np.zeros((0, len(JointType), 3), dtype=np.int32)
 
         for ann in annotations:
@@ -159,16 +153,20 @@ class CocoDataset(Dataset):
 
         return poses
 
-    def generate_labels(self, img, poses):
-        # replace augment code with augmentation code
-        img, ignore_mask, poses = self.augment_data(img, poses)
-        resized_img, ignore_mask, resized_poses = self.resize_data(img, poses,
-                                                                   shape=(self.image_size, self.image_size))
 
-        heatmaps = self.generate_heatmaps(resized_img, resized_poses, 7)
-        pafs = self.generate_pafs(resized_img, resized_poses, 8) # params['paf_sigma']: 8
-        ignore_mask = cv2.morphologyEx(ignore_mask.astype('uint8'), cv2.MORPH_DILATE, np.ones((16, 16))).astype('bool')
-        return resized_img, pafs, heatmaps, ignore_mask
+    def generate_labels(self, img, poses):
+        # input: img, nparry poses [nxnumjointx3]
+        # output: transformed image , and its pafs, heatmap
+        # replace augment code with augmentation code, if use albumentation -> get keypoint ->xy and flatten all keypoints
+        # to list, remerge the visible point latter.
+        # can define many other class: keypoint type , person belong, visible, remake this
+        # TODO: need a function to transform poses array to albumentation ready version and reconvert.
+        trans = self.augment_data(image = img, keypoints = poses)
+        trans_img, trans_poses = trans["image"], trans["keypoints"]
+
+        heatmaps = self.generate_heatmaps(trans_img, trans_poses, 7)
+        pafs = self.generate_pafs(trans_img, trans_poses, 8) # params['paf_sigma']: 8
+        return trans_img, pafs, heatmaps
 
     def preprocess(self, img):
         x_data = img.astype('f')
@@ -180,13 +178,13 @@ class CocoDataset(Dataset):
     def __getitem__(self, i):
         img, annotations = self.get_img_annotation(i)
 
-        # if no annotations are available
+        # if no annotations are available, randomly get another image
         while len(annotations) <= 0:
             i = self.imgIds[np.random.randint(len(self))]
             img, annotations = self.get_img_annotation(i)
 
         poses = self.parse_coco_annotation(annotations)
-        resized_img, pafs, heatmaps, ignore_mask = self.generate_labels(img, poses)
+        resized_img, pafs, heatmaps = self.generate_labels(img, poses)
         resized_img = self.preprocess(resized_img)
         resized_img = torch.tensor(resized_img)
         pafs = torch.tensor(pafs)
