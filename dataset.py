@@ -34,13 +34,13 @@ LIMBS = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 11], [6, 12], [5,
 
 
 class CocoDataset(Dataset):
-    def __init__(self, coco, file_info, image_size):
-        self.coco = coco
+    def __init__(self, img_dir, file_info, transform):
         print("read pickle files")
+        self.img_dir = img_dir
         self.imgIds = sorted(FileTool.readPickle(file_info["ids"]))
         self.file_info = FileTool.readPickle(file_info["file_info"])
         self.annotations = FileTool.readPickle(file_info["annotations"])
-        self.image_size = image_size
+        self.transform = transform
 
     def __len__(self):
         return len(self.imgIds)
@@ -123,50 +123,52 @@ class CocoDataset(Dataset):
             if annotation['num_keypoints'] >= 5 and annotation['area'] > 32*32:
                 valid_annotations_for_img.append(annotation)
 
-        img_path = os.path.join(self.file_info[img_id]["name"])
+        img_path = os.path.join(self.img_dir, self.file_info[img_id]["name"])
         img = cv2.imread(img_path)
 
         return img, valid_annotations_for_img
 
-    def parse_coco_annotation(self, annotations):
+    def parse_coco_annotation(self, img, annotations):
         # input is a list of annotation (each for 1 person)
         # output: poses: np.array( stack of (num join *3) (pos x,y , visible)
-        poses = np.zeros((0, len(JointType), 3), dtype=np.int32)
-
-        for ann in annotations:
+        cood = []
+        pose_id = []
+        join_id = []
+        for id, ann in enumerate(annotations):
             ann_pose = np.array(ann['keypoints']).reshape(-1, 3)
-            pose = np.zeros((1, len(JointType), 3), dtype=np.int32)
 
-            # convert poses position
-            for i, joint_index in enumerate(JointType):
-                pose[0][joint_index] = ann_pose[i]
+            for i, join_index in enumerate(JointType):
+                if ann_pose[i][2] > 0:
+                    cood.append((ann_pose[i][0], ann_pose[i][1]))
+                    pose_id.append(id)
+                    join_id.append(join_index)
+
+        trans_img, trans_poses = self.transform(image=img, keypoints=(cood, pose_id, join_id))
+        poses = np.zeros((len(annotations), len(JointType), 3), dtype=np.int32)
+        trans_cood, trans_pose, trans_join = trans_poses
+        for ind, t_cood in enumerate(trans_cood):
+            poses[trans_poses[ind]][trans_join[ind]][0] = t_cood[0]
+            poses[trans_poses[ind]][trans_join[ind]][1] = t_cood[1]
+            poses[trans_poses[ind]][trans_join[ind]][2] = 2
 
             # compute neck position
-            if pose[0][JointType.LeftShoulder][2] > 0 and pose[0][JointType.RightShoulder][2] > 0:
-                pose[0][JointType.Neck][0] = int((pose[0][JointType.LeftShoulder][0] +
-                                                  pose[0][JointType.RightShoulder][0]) / 2)
-                pose[0][JointType.Neck][1] = int((pose[0][JointType.LeftShoulder][1] +
-                                                  pose[0][JointType.RightShoulder][1]) / 2)
-                pose[0][JointType.Neck][2] = 2
+        for id in range(len(annotations)):
+            if poses[id][JointType.LeftShoulder][2] > 0 and poses[id][JointType.RightShoulder][2] > 0:
+                poses[id][JointType.Neck][0] = int((poses[id][JointType.LeftShoulder][0] +
+                                                  poses[id][JointType.RightShoulder][0]) / 2)
+                poses[id][JointType.Neck][1] = int((poses[id][JointType.LeftShoulder][1] +
+                                                  poses[id][JointType.RightShoulder][1]) / 2)
+                poses[id][JointType.Neck][2] = 2
 
-            poses = np.vstack((poses, pose))
-
-        return poses
-
+        return trans_img, poses
 
     def generate_labels(self, img, poses):
         # input: img, nparry poses [nxnumjointx3]
         # output: transformed image , and its pafs, heatmap
-        # replace augment code with augmentation code, if use albumentation -> get keypoint ->xy and flatten all keypoints
-        # to list, remerge the visible point latter.
-        # can define many other class: keypoint type , person belong, visible, remake this
-        # TODO: need a function to transform poses array to albumentation ready version and reconvert.
-        trans = self.augment_data(image = img, keypoints = poses)
-        trans_img, trans_poses = trans["image"], trans["keypoints"]
+        heatmaps = self.generate_heatmaps(img, poses, 7)
+        pafs = self.generate_pafs(img, poses, 8)
 
-        heatmaps = self.generate_heatmaps(trans_img, trans_poses, 7)
-        pafs = self.generate_pafs(trans_img, trans_poses, 8) # params['paf_sigma']: 8
-        return trans_img, pafs, heatmaps
+        return img, pafs, heatmaps
 
     def preprocess(self, img):
         x_data = img.astype('f')
@@ -183,11 +185,11 @@ class CocoDataset(Dataset):
             i = self.imgIds[np.random.randint(len(self))]
             img, annotations = self.get_img_annotation(i)
 
-        poses = self.parse_coco_annotation(annotations)
-        resized_img, pafs, heatmaps = self.generate_labels(img, poses)
-        resized_img = self.preprocess(resized_img)
-        resized_img = torch.tensor(resized_img)
+        trans_img, poses = self.parse_coco_annotation(img, annotations)
+        trans_img, pafs, heatmaps = self.generate_labels(trans_img, poses)
+        trans_img = self.preprocess(trans_img)
+        trans_img = torch.tensor(trans_img)
         pafs = torch.tensor(pafs)
         heatmaps = torch.tensor(heatmaps)
 
-        return resized_img, pafs, heatmaps
+        return trans_img, pafs, heatmaps
