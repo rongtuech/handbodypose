@@ -162,3 +162,26 @@ def tensor2npImage(img_tensor: np.array) -> np.array:
     img_tensor = img_tensor * 255
     img_tensor = np.clip(img_tensor, a_min=0, a_max=255)
     return img_tensor
+
+body_edges = np.array(
+    [[0, 1],  # neck - nose
+     [1, 16], [16, 18],  # nose - l_eye - l_ear
+     [1, 15], [15, 17],  # nose - r_eye - r_ear
+     [0, 3], [3, 4], [4, 5],     # neck - l_shoulder - l_elbow - l_wrist
+     [0, 9], [9, 10], [10, 11],  # neck - r_shoulder - r_elbow - r_wrist
+     [0, 6], [6, 7], [7, 8],        # neck - l_hip - l_knee - l_ankle
+     [0, 12], [12, 13], [13, 14]])  # neck - r_hip - r_knee - r_ankle
+
+
+def draw_poses_for_coco(img, poses_2d):
+    for pose_id in range(len(poses_2d)):
+        pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
+        was_found = pose[2, :] > 0
+        for edge in body_edges:
+            if was_found[edge[0]] and was_found[edge[1]]:
+                cv2.line(img, tuple(pose[0:2, edge[0]].astype(int)), tuple(pose[0:2, edge[1]].astype(int)),
+                         (255, 255, 0), 4, cv2.LINE_AA)
+        for kpt_id in range(pose.shape[1]):
+            if pose[2, kpt_id] != -1:
+                cv2.circle(img, tuple(pose[0:2, kpt_id].astype(int)), 3, (0, 255, 255), -1, cv2.LINE_AA)
+
