@@ -86,7 +86,7 @@ if __name__ == '__main__':
             fx = np.float32(0.8 * frame.shape[1])
 
         inference_result = net.infer(scaled_img)
-        poses_3d, poses_2d = parse_poses(inference_result, input_scale, stride, fx, is_video)
+        poses_2d = parse_poses(inference_result, input_scale, stride, fx, is_video)
         edges = []
 
         draw_poses_for_coco(frame, poses_2d)

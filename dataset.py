@@ -29,8 +29,45 @@ class JointType(Enum):
     RightEar = 16
     LeftEar = 17
 
-LIMBS = [[15, 13], [13, 11], [16, 14], [14, 12], [11, 12], [5, 11], [6, 12], [5, 6], [5, 7], [6, 8],
-         [7, 9], [8, 10], [1, 2], [0, 1], [0, 2], [1, 3], [2, 4], [3, 5], [4, 6], [5,9], [6,10], [11,15], [12,16]]
+coco_joint_indices= [
+        JointType.Nose,
+        JointType.LeftEye,
+        JointType.RightEye,
+        JointType.LeftEar,
+        JointType.RightEar,
+        JointType.LeftShoulder,
+        JointType.RightShoulder,
+        JointType.LeftElbow,
+        JointType.RightElbow,
+        JointType.LeftHand,
+        JointType.RightHand,
+        JointType.LeftWaist,
+        JointType.RightWaist,
+        JointType.LeftKnee,
+        JointType.RightKnee,
+        JointType.LeftFoot,
+        JointType.RightFoot
+    ]
+
+LIMBS = [[JointType.Neck, JointType.RightWaist],
+        [JointType.RightWaist, JointType.RightKnee],
+        [JointType.RightKnee, JointType.RightFoot],
+        [JointType.Neck, JointType.LeftWaist],
+        [JointType.LeftWaist, JointType.LeftKnee],
+        [JointType.LeftKnee, JointType.LeftFoot],
+        [JointType.Neck, JointType.RightShoulder],
+        [JointType.RightShoulder, JointType.RightElbow],
+        [JointType.RightElbow, JointType.RightHand],
+        [JointType.RightShoulder, JointType.RightEar],
+        [JointType.Neck, JointType.LeftShoulder],
+        [JointType.LeftShoulder, JointType.LeftElbow],
+        [JointType.LeftElbow, JointType.LeftHand],
+        [JointType.LeftShoulder, JointType.LeftEar],
+        [JointType.Neck, JointType.Nose],
+        [JointType.Nose, JointType.RightEye],
+        [JointType.Nose, JointType.LeftEye],
+        [JointType.RightEye, JointType.RightEar],
+        [JointType.LeftEye, JointType.LeftEar]]
 
 
 class CocoDataset(Dataset):
@@ -101,7 +138,7 @@ class CocoDataset(Dataset):
             paf_flags = np.zeros(paf.shape) # for constant paf
 
             for pose in poses:
-                joint_from, joint_to = pose[limb]
+                joint_from, joint_to = pose[[limb[0].value, limb[1].value]]
                 if joint_from[2] > 0 and joint_to[2] > 0: # check visible
                     limb_paf = self.generate_constant_paf(img.shape, joint_from[:2], joint_to[:2], paf_sigma) #[2,368,368]
                     limb_paf_flags = limb_paf != 0
@@ -137,28 +174,29 @@ class CocoDataset(Dataset):
         for id, ann in enumerate(annotations):
             ann_pose = np.array(ann['keypoints']).reshape(-1, 3)
 
-            for i, join_index in enumerate(JointType):
+            for i, join_index in enumerate(coco_joint_indices):
                 if ann_pose[i][2] > 0:
                     cood.append((ann_pose[i][0], ann_pose[i][1]))
                     pose_id.append(id)
                     join_id.append(join_index)
 
-        trans_img, trans_poses = self.transform(image=img, keypoints=(cood, pose_id, join_id))
+        trans_img, trans_pose_info = self.transform(image=img, keypoints=(cood, pose_id, join_id))
         poses = np.zeros((len(annotations), len(JointType), 3), dtype=np.int32)
-        trans_cood, trans_pose, trans_join = trans_poses
+        trans_cood, trans_pose, trans_join = trans_pose_info
         for ind, t_cood in enumerate(trans_cood):
-            poses[trans_poses[ind]][trans_join[ind]][0] = t_cood[0]
-            poses[trans_poses[ind]][trans_join[ind]][1] = t_cood[1]
-            poses[trans_poses[ind]][trans_join[ind]][2] = 2
+            poses[trans_pose[ind],trans_join[ind].value,0] = t_cood[0]
+            poses[trans_pose[ind],trans_join[ind].value,1] = t_cood[1]
+            poses[trans_pose[ind],trans_join[ind].value,2] = 2
 
             # compute neck position
         for id in range(len(annotations)):
-            if poses[id][JointType.LeftShoulder][2] > 0 and poses[id][JointType.RightShoulder][2] > 0:
-                poses[id][JointType.Neck][0] = int((poses[id][JointType.LeftShoulder][0] +
-                                                  poses[id][JointType.RightShoulder][0]) / 2)
-                poses[id][JointType.Neck][1] = int((poses[id][JointType.LeftShoulder][1] +
-                                                  poses[id][JointType.RightShoulder][1]) / 2)
-                poses[id][JointType.Neck][2] = 2
+            if poses[id,JointType.LeftShoulder.value,2] > 0 and \
+                    poses[id,JointType.RightShoulder.value,2] > 0:
+                poses[id,JointType.Neck.value,0] = int((poses[id,JointType.LeftShoulder.value,0] +
+                                                  poses[id,JointType.RightShoulder.value,0]) / 2)
+                poses[id,JointType.Neck.value,1] = int((poses[id,JointType.LeftShoulder.value,1] +
+                                                  poses[id,JointType.RightShoulder.value,1]) / 2)
+                poses[id,JointType.Neck.value,2] = 2
 
         return trans_img, poses
 
@@ -182,11 +220,11 @@ class CocoDataset(Dataset):
 
         # if no annotations are available, randomly get another image
         while len(annotations) <= 0:
-            i = self.imgIds[np.random.randint(len(self))]
-            img, annotations = self.get_img_annotation(i)
+            img, annotations = self.get_img_annotation(np.random.randint(len(self.imgIds)))
 
         trans_img, poses = self.parse_coco_annotation(img, annotations)
         trans_img, pafs, heatmaps = self.generate_labels(trans_img, poses)
+
         trans_img = self.preprocess(trans_img)
         trans_img = torch.tensor(trans_img)
         pafs = torch.tensor(pafs)

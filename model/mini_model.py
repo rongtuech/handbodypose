@@ -150,7 +150,6 @@ class ResBlock(nn.Module):
             x = self.align(x)
         return x + res
 
-
 class PoseEstimationWithMobileNet(nn.Module):
     def __init__(self, num_refinement_stages=1, num_channels=128, num_heatmaps=19, num_pafs=38,
                  is_convertible_by_mo=False):
@@ -179,11 +178,6 @@ class PoseEstimationWithMobileNet(nn.Module):
             self.refinement_stages.append(RefinementStage(num_channels + num_heatmaps + num_pafs, num_channels,
                                                           num_heatmaps, num_pafs))
 
-        if self.is_convertible_by_mo:
-            self.fake_conv_heatmaps = nn.Conv2d(num_heatmaps, num_heatmaps, kernel_size=1, bias=False)
-            self.fake_conv_heatmaps.weight = nn.Parameter(torch.zeros(num_heatmaps, num_heatmaps, 1, 1))
-            self.fake_conv_pafs = nn.Conv2d(num_pafs, num_pafs, kernel_size=1, bias=False)
-            self.fake_conv_pafs.weight = nn.Parameter(torch.zeros(num_pafs, num_pafs, 1, 1))
 
     def forward(self, x):
         model_features = self.model(x)
@@ -195,8 +189,6 @@ class PoseEstimationWithMobileNet(nn.Module):
                 refinement_stage(torch.cat([backbone_features, stages_output[-2], stages_output[-1]], dim=1)))
         keypoints2d_maps = stages_output[-2]
         paf_maps = stages_output[-1]
-        if self.is_convertible_by_mo:  # Model Optimizer R3 2019 cuts out these two network outputs, add fake op to fix it
-            keypoints2d_maps = stages_output[-2] + self.fake_conv_heatmaps(stages_output[-2])
-            paf_maps = stages_output[-1] + self.fake_conv_pafs(stages_output[-1])
 
-        return keypoints2d_maps, paf_maps
+
+        return paf_maps, keypoints2d_maps

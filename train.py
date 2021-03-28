@@ -1,16 +1,16 @@
-from training_framework import TrainingProcess
+from training_framework import TrainingProcess, EvaluationProcess
 from tqdm import tqdm
 from utils.utils_torch import transform_torch_vars, transform_torch_targets
 import torch
 from utils.utils_torch import parse_args
 from torch.utils.data import DataLoader
 from loss import compute_loss
-from custom_augmentation import COCOTransformation
+from custom_augmentation import COCOTransformation, COCOTransformationTest
 from dataset import CocoDataset
 from model.mini_model import PoseEstimationWithMobileNet
 import os
 
-
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 class TrainingProcessBodyPose(TrainingProcess):
     def __init__(self, *args,
                  is_triplet=False,
@@ -154,32 +154,76 @@ class TrainingProcessBodyPose(TrainingProcess):
             self.last_model_path = current_path
 
 
+import cv2
+from parse_poses import *
+from utils.utils_image import draw_poses_for_coco
+
+class EvaluationCOCOPose(EvaluationProcess):
+    def test(self, num_show = 3):
+        self.model.eval()
+        current_batch = 0
+        with torch.no_grad():
+            for data in tqdm(self.test_data):
+                resized_img, paf_t, heatmap_t = data
+                resized_img = transform_torch_vars(resized_img, self.is_cuda)
+
+                paf, heatmap = self.model(resized_img)
+                # view paf and heatmap here
+
+                # parse paf and heatmap here
+                self.parser_output((paf, heatmap), resized_img, current_batch)
+
+                current_batch+=1
+                if current_batch >  num_show:
+                    return
+
+    def view_paf_heatmap(self, paf_batch, heatmap_batch,ind):
+        paf_batch = paf_batch.detach().cpu().numpy()
+        paf_batch = paf_batch[0]*255
+        heatmap_batch = heatmap_batch.detach().cpu().numpy()
+        heatmap_batch = heatmap_batch[0]*255
+        for i,heatmap in enumerate(heatmap_batch):
+            cv2.imwrite("heatmap_%d_%d.jpg" % (ind, i), heatmap)
+
+        for i, paf in enumerate(paf_batch):
+            cv2.imwrite("paf_%d_%d.jpg"%(ind, i), paf)
+
+    def parser_output(self, pred, img, ind):
+        current_time = cv2.getTickCount()
+        poses_2d = parse_poses(pred, (1.0,1.0))
+
+        draw_poses_for_coco(img, poses_2d)
+        current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
+        cv2.putText(img, 'FPS: {}'.format(current_time),
+                    (40, 80), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
+        cv2.imwrite("img_with_pose_%d.jpg"%ind, img)
+
 if __name__ == "__main__":
     parser = parse_args()
     FIX_HEIGHT = FIX_WIDTH = 368
     # _model
     print("train %s" % parser.model)
+    train_file_info = {
+        "ids": "../data/coco_bodypose/ids.pkl",
+        "file_info": "../data/coco_bodypose/file_infos.pkl",
+        "annotations": "../data/coco_bodypose/annotation_ids.pkl"
+    }
+    val_file_info = {
+        "ids": "../data/coco_bodypose/val_ids.pkl",
+        "file_info": "../data/coco_bodypose/val_file_infos.pkl",
+        "annotations": "../data/coco_bodypose/val_annotation_ids.pkl"
+    }
 
     if parser.state == "train":
-        train_file_info = {
-            "ids":"../../data/coco_bodypose/ids.pkl",
-            "file_info":"../../data/coco_bodypose/file_infos.pkl",
-            "annotations":"../../data/coco_bodypose/annotation_ids.pkl"
-        }
-        val_file_info = {
-            "ids":"../../data/coco_bodypose/val_ids.pkl",
-            "file_info":"../../data/coco_bodypose/val_file_infos.pkl",
-            "annotations":"../../data/coco_bodypose/val_annotation_ids.pkl"
-        }
-
 
 
         # data augumentation
         data_transforms = COCOTransformation(height=FIX_HEIGHT, width=FIX_WIDTH)
         trainSet = CocoDataset(parser.train, train_file_info, transform=data_transforms)
+        # trainSet = CocoDataset(parser.val, val_file_info, transform=data_transforms)
         valSet = CocoDataset(parser.val, val_file_info, transform=data_transforms)
-        trainLoader = DataLoader(trainSet, batch_size=10, shuffle=True, num_workers=4)
-        valLoader = DataLoader(valSet, batch_size=4, shuffle=False, num_workers=4)
+        trainLoader = DataLoader(trainSet, batch_size=20, shuffle=True, num_workers=10)
+        valLoader = DataLoader(valSet, batch_size=10, shuffle=False, num_workers=5)
 
         model = PoseEstimationWithMobileNet()
         loss = compute_loss
@@ -190,7 +234,7 @@ if __name__ == "__main__":
                                                optimizer,
                                                loss,
                                                model,
-                                               num_epoch=50,
+                                               num_epoch=10,
                                                lr=parser.lr,
                                                gpus=parser.gpus,
                                                pretrained_path=parser.weights,
@@ -200,4 +244,13 @@ if __name__ == "__main__":
         train_frame.train()
 
     elif parser.state == "test":
-        pass
+        data_transforms = COCOTransformationTest(height=FIX_HEIGHT, width=FIX_WIDTH)
+        testSet = CocoDataset(parser.test, val_file_info, transform=data_transforms)
+        testLoader = DataLoader(testSet, batch_size=1, shuffle=False)
+        model = PoseEstimationWithMobileNet()
+        eval_framework = EvaluationCOCOPose(testLoader,
+                                            model,
+                                            parser.weights,
+                                            gpus = parser.gpus)
+
+        eval_framework.test()

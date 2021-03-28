@@ -15,8 +15,23 @@ class COCOTransformation:
         ], keypoint_params=KeypointParams(format='xy', label_fields=['pose_id', "join_id"],
                                           remove_invisible=True))
 
-    def __call__(self, img, keypoints):
+    def __call__(self, image, keypoints):
         cood, pose, join = keypoints
-        transformed = self.aug(image=img, keypoints=cood, pose_id=pose, join_id=join)
+        transformed = self.aug(image=image, keypoints=cood, pose_id=pose, join_id=join)
+        return transformed["image"], (transformed['keypoints'], transformed['pose_id'], \
+               transformed['join_id'])
+
+
+class COCOTransformationTest:
+    def __init__(self, width, height):
+        self.aug = Compose([
+            LongestMaxSize(max_size=width if width > height else height),
+            PadIfNeeded(min_height=height, min_width=width, border_mode=cv2.BORDER_CONSTANT)
+        ], keypoint_params=KeypointParams(format='xy', label_fields=['pose_id', "join_id"],
+                                          remove_invisible=True))
+
+    def __call__(self, image, keypoints):
+        cood, pose, join = keypoints
+        transformed = self.aug(image=image, keypoints=cood, pose_id=pose, join_id=join)
         return transformed["image"], (transformed['keypoints'], transformed['pose_id'], \
                transformed['join_id'])
