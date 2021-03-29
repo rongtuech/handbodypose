@@ -1,5 +1,10 @@
 import numpy as np
-from pose_extractor import extract_poses
+
+try:
+    from pose_extractor import extract_poses
+    print("using c++")
+except:
+    from legacy_pose_extractor import extract_poses
 
 AVG_PERSON_HEIGHT = 180
 
@@ -46,33 +51,20 @@ def get_root_relative_poses(inference_results):
 previous_poses_2d = []
 
 
-def parse_poses(inference_results, is_video=False):
+def parse_poses(inference_results, input_scale):
     global previous_poses_2d
     poses_2d = get_root_relative_poses(inference_results)
-    return poses_2d
-    # poses_2d_scaled = []
-    # for pose_2d in poses_2d:
-    #     num_kpt = (pose_2d.shape[0] - 1) // 3
-    #     pose_2d_scaled = np.ones(pose_2d.shape[0], dtype=np.float32) * -1  # +1 for pose confidence
-    #     for kpt_id in range(num_kpt):
-    #         if pose_2d[kpt_id * 3] != -1:
-    #             pose_2d_scaled[kpt_id * 3] = int(pose_2d[kpt_id * 3] * stride / input_scale)
-    #             pose_2d_scaled[kpt_id * 3 + 1] = int(pose_2d[kpt_id * 3 + 1] * stride / input_scale)
-    #             pose_2d_scaled[kpt_id * 3 + 2] = pose_2d[kpt_id * 3 + 2]
-    #     pose_2d_scaled[-1] = pose_2d[-1]
-    #     poses_2d_scaled.append(pose_2d_scaled)
-
-    # if is_video:  # track poses ids
-    #     current_poses_2d = []
-    #     for pose_id in range(len(poses_2d_scaled)):
-    #         pose_keypoints = np.ones((Pose.num_kpts, 2), dtype=np.int32) * -1
-    #         for kpt_id in range(Pose.num_kpts):
-    #             if poses_2d_scaled[pose_id][kpt_id * 3] != -1.0:  # keypoint was found
-    #                 pose_keypoints[kpt_id, 0] = int(poses_2d_scaled[pose_id][kpt_id * 3 + 0])
-    #                 pose_keypoints[kpt_id, 1] = int(poses_2d_scaled[pose_id][kpt_id * 3 + 1])
-    #         pose = Pose(pose_keypoints, poses_2d_scaled[pose_id][-1])
-    #         current_poses_2d.append(pose)
-    #     propagate_ids(previous_poses_2d, current_poses_2d)
-    #     previous_poses_2d = current_poses_2d
+    # return poses_2d
+    poses_2d_scaled = []
+    for pose_2d in poses_2d:
+        num_kpt = (pose_2d.shape[0] - 1) // 3
+        pose_2d_scaled = np.ones(pose_2d.shape[0], dtype=np.float32) * -1  # +1 for pose confidence
+        for kpt_id in range(num_kpt):
+            if pose_2d[kpt_id * 3] != -1:
+                pose_2d_scaled[kpt_id * 3] = int(pose_2d[kpt_id * 3] / input_scale)
+                pose_2d_scaled[kpt_id * 3 + 1] = int(pose_2d[kpt_id * 3 + 1] / input_scale)
+                pose_2d_scaled[kpt_id * 3 + 2] = pose_2d[kpt_id * 3 + 2]
+        pose_2d_scaled[-1] = pose_2d[-1]
+        poses_2d_scaled.append(pose_2d_scaled)
 
     return np.array(poses_2d_scaled)

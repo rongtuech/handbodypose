@@ -174,6 +174,19 @@ body_edges = np.array(
 
 
 def draw_poses_for_coco(img, poses_2d):
+    # get only the biggest pose of image
+    max_size =0
+    max_index = 0
+    for pose_id in range(len(poses_2d)):
+        pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
+        max_x, min_x = np.max(pose[1, :]), np.min(pose[1, :])
+        max_y, min_y = np.max(pose[0, :]), np.min(pose[0, :])
+        temp_size = abs((max_x-min_x)*(max_y-min_y))
+        if  temp_size > max_size:
+            max_size=temp_size
+            max_index = pose_id
+
+    poses_2d = [poses_2d[max_index]]
     for pose_id in range(len(poses_2d)):
         pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
         was_found = pose[2, :] > 0

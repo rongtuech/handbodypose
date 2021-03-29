@@ -218,11 +218,15 @@ class EvaluationProcess:
         self.pretrained_model_path = pretrained_model_path
         self.writer = SummaryWriter()
         self.evaluate_metric = evaluate_metric
+        self.gpus = gpus
+        self.is_cuda = False
 
-        os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+
         self.model.load_state_dict(torch.load(self.pretrained_model_path))
-        self.gpus, self.model = setting_cuda(gpus, self.model)
-        self.is_cuda = len(self.gpus) >= 1
+        if self.gpus is not None:
+            os.environ["CUDA_VISIBLE_DEVICES"] = gpus
+            self.gpus, self.model = setting_cuda(gpus, self.model)
+            self.is_cuda = len(self.gpus) >= 1
 
         self.result = {}
 

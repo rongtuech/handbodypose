@@ -132,24 +132,6 @@ class RefinementStageLight(nn.Module):
         return feature_maps
 
 
-class ResBlock(nn.Module):
-    def __init__(self, in_channels, out_channels, ratio, should_align=False):
-        super().__init__()
-        self.should_align = should_align
-        self.bottleneck = nn.Sequential(
-            conv(in_channels, in_channels // ratio, kernel_size=1, padding=0),
-            conv(in_channels // ratio, in_channels // ratio),
-            conv(in_channels // ratio, out_channels, kernel_size=1, padding=0)
-        )
-        if self.should_align:
-            self.align = conv(in_channels, out_channels, kernel_size=1, padding=0)
-
-    def forward(self, x):
-        res = self.bottleneck(x)
-        if self.should_align:
-            x = self.align(x)
-        return x + res
-
 class PoseEstimationWithMobileNet(nn.Module):
     def __init__(self, num_refinement_stages=1, num_channels=128, num_heatmaps=19, num_pafs=38,
                  is_convertible_by_mo=False):
