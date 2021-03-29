@@ -3,8 +3,8 @@ import torch
 from utils.utils_torch import parse_args
 from torch.utils.data import DataLoader
 from loss import compute_loss
-from custom_augmentation import HandTransformation
-from dataset import HandDataset
+from custom_augmentation import HandTransformation, InferenceTransformation
+from dataset import HandDataset, HandTestset
 from model.mini_model import PoseEstimationWithMobileNet
 import setting
 
@@ -41,3 +41,13 @@ if __name__ == "__main__":
                                                is_scheduler=True,
                                               is_apex=False)
         train_frame.train()
+    elif parser.state == "test":
+        data_transforms = InferenceTransformation(height=FIX_HEIGHT, width=FIX_WIDTH)
+        testSet = HandTestset(parser.test, transform=data_transforms)
+        testLoader = DataLoader(testSet, batch_size=1, shuffle=True)
+        model = PoseEstimationWithMobileNet()
+        eval_framework = EvaluationOpenPose(testLoader,
+                                            model,
+                                            parser.weights)
+
+        eval_framework.test()

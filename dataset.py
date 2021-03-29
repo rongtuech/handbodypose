@@ -353,7 +353,7 @@ class HandTestset(Dataset):
     def __getitem__(self, i):
         img, annotations = self.get_img_annotation(i)
 
-        trans_img, poses = parse_hand_annotation(img, annotations, self.transform)
+        trans_img = self.transform(img)
 
         origin_img = trans_img.copy()
         trans_img = self.preprocess(trans_img)

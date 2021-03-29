@@ -165,9 +165,9 @@ class EvaluationOpenPose(EvaluationProcess):
                 heatmap = heatmap.detach().cpu().numpy()[0]
 
                 # view paf and heatmap here
-                # self.view_paf_heatmap(paf, heatmap, current_batch)
+                self.view_paf_heatmap(paf, heatmap, current_batch)
                 # parse paf and heatmap here
-                self.parser_output((paf, heatmap), origin_image, current_batch)
+                # self.parser_output((paf, heatmap), origin_image, current_batch)
                 current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
                 sum += current_time
                 current_batch+=1
