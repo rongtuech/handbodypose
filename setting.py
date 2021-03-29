@@ -51,6 +51,30 @@ class JointType(Enum):
     LeftEar = 17
 
 
+hand_join_indices = [
+    HandJointType.BAMB_0,
+    HandJointType.BAMB_1,
+    HandJointType.BIG_TOE,
+    HandJointType.BIG_TOE_1,
+    HandJointType.BIG_TOE_2,
+    HandJointType.FINGER_1,
+    HandJointType.FINGER_1_1,
+    HandJointType.FINGER_1_2,
+    HandJointType.FINGER_1_3,
+    HandJointType.FINGER_2,
+    HandJointType.FINGER_2_1,
+    HandJointType.FINGER_2_2,
+    HandJointType.FINGER_2_3,
+    HandJointType.FINGER_3,
+    HandJointType.FINGER_3_1,
+    HandJointType.FINGER_3_2,
+    HandJointType.FINGER_3_3,
+    HandJointType.FINGER_4,
+    HandJointType.FINGER_4_1,
+    HandJointType.FINGER_4_2,
+    HandJointType.FINGER_4_3
+]
+
 coco_joint_indices= [
         JointType.Nose,
         JointType.LeftEye,

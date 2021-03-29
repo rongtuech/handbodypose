@@ -196,11 +196,11 @@ def draw_poses_for_coco(img, poses_2d):
         for edge in body_edges:
             if was_found[edge[0]] and was_found[edge[1]]:
                 cv2.line(img, tuple(pose[0:2, edge[0]].astype(int)), tuple(pose[0:2, edge[1]].astype(int)),
-                         (255, 255, 0), 4, cv2.LINE_AA)
+                         (255, 255, 0), 2, cv2.LINE_AA)
 
         for kpt_id in range(pose.shape[1]):
             if pose[2, kpt_id] != -1:
-                cv2.circle(img, tuple(pose[0:2, kpt_id].astype(int)), 3, (0, 255, 255), -1, cv2.LINE_AA)
+                cv2.circle(img, tuple(pose[0:2, kpt_id].astype(int)), 2, (0, 255, 255), -1, cv2.LINE_AA)
 
         # get hand position
         if was_found[4] and was_found[5]:

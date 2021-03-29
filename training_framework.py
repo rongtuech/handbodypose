@@ -24,7 +24,7 @@ class TrainingProcess:
                  gpus=None,
                  pretrained_path = None,
                  checkpoint_save_path = "best_model.pt",
-                 is_apex = True,
+                 is_apex = False,
                  is_scheduler = True):
         """
          config data loader and gpus using for training.
@@ -56,19 +56,20 @@ class TrainingProcess:
         os.environ["CUDA_VISIBLE_DEVICES"] = gpus
         if pretrained_path is not None:
             print("loaded model %s"%pretrained_path)
-            checkpoint = torch.load(pretrained_path, map_location='cpu')
-            source_state = checkpoint['state_dict']
-            target_state = self.model.state_dict()
-            new_target_state = collections.OrderedDict()
-            for target_key, target_value in target_state.items():
-                if target_key in source_state and source_state[target_key].size() == target_state[
-                    target_key].size():
-                    new_target_state[target_key] = source_state[target_key]
-                else:
-                    new_target_state[target_key] = target_state[target_key]
-                    print('[WARNING] Not found pre-trained parameters for {}'.format(target_key))
-
-            self.model.load_state_dict(new_target_state)
+            # checkpoint = torch.load(pretrained_path, map_location='cpu')
+            # source_state = checkpoint['state_dict']
+            # target_state = self.model.state_dict()
+            # new_target_state = collections.OrderedDict()
+            # for target_key, target_value in target_state.items():
+            #     if target_key in source_state and source_state[target_key].size() == target_state[
+            #         target_key].size():
+            #         new_target_state[target_key] = source_state[target_key]
+            #     else:
+            #         new_target_state[target_key] = target_state[target_key]
+            #         print('[WARNING] Not found pre-trained parameters for {}'.format(target_key))
+            #
+            # self.model.load_state_dict(new_target_state)
+            self.model.load_state_dict(torch.load(pretrained_path))
 
         # setting cuda if needed
         self.gpus, self.model = setting_cuda(gpus, self.model)
