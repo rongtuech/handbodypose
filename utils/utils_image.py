@@ -177,6 +177,7 @@ def draw_poses_for_coco(img, poses_2d):
     # get only the biggest pose of image
     max_size =0
     max_index = 0
+    size_hand = 0
     for pose_id in range(len(poses_2d)):
         pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
         max_x, min_x = np.max(pose[1, :]), np.min(pose[1, :])
@@ -185,6 +186,8 @@ def draw_poses_for_coco(img, poses_2d):
         if  temp_size > max_size:
             max_size=temp_size
             max_index = pose_id
+            size_hand = max((max_x-min_x),(max_y-min_y))
+            size_hand = size_hand //8
 
     poses_2d = [poses_2d[max_index]]
     for pose_id in range(len(poses_2d)):
@@ -194,7 +197,22 @@ def draw_poses_for_coco(img, poses_2d):
             if was_found[edge[0]] and was_found[edge[1]]:
                 cv2.line(img, tuple(pose[0:2, edge[0]].astype(int)), tuple(pose[0:2, edge[1]].astype(int)),
                          (255, 255, 0), 4, cv2.LINE_AA)
+
         for kpt_id in range(pose.shape[1]):
             if pose[2, kpt_id] != -1:
                 cv2.circle(img, tuple(pose[0:2, kpt_id].astype(int)), 3, (0, 255, 255), -1, cv2.LINE_AA)
 
+        # get hand position
+        if was_found[4] and was_found[5]:
+            l_h = pose[0:2,5]+ (pose[0:2,5] - pose[0:2,4])/3
+            cv2.rectangle(img,
+                          (int(l_h[0] - size_hand / 2), int(l_h[1] - size_hand / 2)),
+                          (int(l_h[0] + size_hand / 2), int(l_h[1] + size_hand / 2)),
+                          (0,0, 255),1)
+
+        if was_found[10] and was_found[11]:
+            r_h = pose[0:2,11] + (pose[0:2,11] - pose[0:2,10])/3
+            cv2.rectangle(img,
+                          (int(r_h[0] - size_hand/2),int(r_h[1] - size_hand/2)),
+                           (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
+                          (0, 0, 255),1)

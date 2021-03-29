@@ -57,7 +57,7 @@ def inference_video(model, parser):
         success, image = vidcap.read()
         height, width,_ = image.shape
         count = 0
-        video = cv2.VideoWriter('_image/video_no%d_size%.avi'%(ind,FIX_SIZE), cv2.VideoWriter_fourcc(*'DIVX'), 30, (FIX_SIZE, FIX_SIZE))
+        video = cv2.VideoWriter('_image/video_no%d.avi'%ind, cv2.VideoWriter_fourcc(*'DIVX'), 30, (FIX_SIZE, FIX_SIZE))
         while success:
             success, origin_image = vidcap.read()
             if success:
