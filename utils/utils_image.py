@@ -216,3 +216,21 @@ def draw_poses_for_coco(img, poses_2d):
                           (int(r_h[0] - size_hand/2),int(r_h[1] - size_hand/2)),
                            (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
                           (0, 0, 255),1)
+hand_edges = [[0, 1],
+     [1, 2], [2, 3], [3, 4], # nose - l_eye - l_ear
+     [0, 5], [5, 6],[6, 7],[7, 8],  # nose - r_eye - r_ear
+     [0, 9], [9,10], [10, 11],[11, 12],     # neck - l_shoulder - l_elbow - l_wrist
+     [0, 13], [13, 14], [14, 15],[15, 16],  # neck - r_shoulder - r_elbow - r_wrist
+     [0, 17], [17, 18], [18, 19],[19, 20]]  # neck - r_hip - r_knee - r_ankle
+
+
+def draw_hand_pose(img, hand_points):
+    for edge in hand_edges:
+        if hand_points[edge[0]] is not None and hand_points[edge[1]]:
+            cv2.line(img, (int(hand_points[edge[0]][0]), int(hand_points[edge[0]][1])),
+                     int(hand_points[edge[1]][0]), int(hand_points[edge[1]][1]),
+                     (255, 255, 0), 2, cv2.LINE_AA)
+
+    for point in range(len(hand_points)):
+        if point is not None:
+            cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 255), -1, cv2.LINE_AA)

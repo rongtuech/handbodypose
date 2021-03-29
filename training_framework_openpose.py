@@ -4,8 +4,9 @@ from utils.utils_torch import transform_torch_vars, transform_torch_targets
 import os
 import cv2
 from parse_poses import *
-from utils.utils_image import draw_poses_for_coco
+from utils.utils_image import draw_poses_for_coco, draw_hand_pose
 import torch
+from legacy_pose_extractor import extract_hand_pose
 
 class TrainingProcessOpenPose(TrainingProcess):
     def __init__(self, *args,
@@ -165,9 +166,10 @@ class EvaluationOpenPose(EvaluationProcess):
                 heatmap = heatmap.detach().cpu().numpy()[0]
 
                 # view paf and heatmap here
-                self.view_paf_heatmap(paf, heatmap, current_batch)
+                # self.view_paf_heatmap(paf, heatmap, current_batch)
                 # parse paf and heatmap here
                 # self.parser_output((paf, heatmap), origin_image, current_batch)
+                self.parser_hand_output(heatmap,origin_image,current_batch)
                 current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
                 sum += current_time
                 current_batch+=1
@@ -190,6 +192,16 @@ class EvaluationOpenPose(EvaluationProcess):
         poses_2d = parse_poses(pred,0.125)
 
         draw_poses_for_coco(img, poses_2d)
+        current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
+        cv2.putText(img, 'parsing time: {}'.format(current_time),
+                    (20, 40), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
+        cv2.imwrite("./_image/img_with_pose_%d.jpg"%ind, img)
+
+    def parser_hand_output(self, pred_heat, img, ind):
+        current_time = cv2.getTickCount()
+        poses_2d = extract_hand_pose(pred_heat,0.125)
+
+        draw_hand_pose(img, poses_2d)
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         cv2.putText(img, 'parsing time: {}'.format(current_time),
                     (20, 40), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
