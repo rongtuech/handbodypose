@@ -237,24 +237,15 @@ def extract_poses(heatmaps, pafs, upsample_ratio):
 def get_max_keypoint(points, upscale):
     final_points = []
     for list_point in points:
-        if len(list_point) == 1:
-            max_info = (list_point[0][0]/upscale, list_point[0][1]/upscale)
-        elif len(list_point) > 1:
-            max_info = 0
-            max_heat = -100
-            for ele in list_point:
-                if ele[2] > max_heat:
-                    max_info = ele
-                    max_heat = (ele[2][0]/upscale, ele[2][1]/upscale)
-        else:
-            max_info = None
-        final_points.append(max_info)
+        for ele in list_point:
+            info = (ele[0]/upscale, ele[1]/upscale)
+            final_points.append(info)
     return final_points
 
 
 def extract_hand_pose(heatmaps, scale):
     heatmaps = np.transpose(heatmaps, (1, 2, 0))
-    heatmaps = cv2.resize(heatmaps, dsize=None, fx=4, fy=4)
+    heatmaps = cv2.resize(heatmaps, dsize=None, fx=1, fy=1)
     heatmaps = np.transpose(heatmaps, (2, 0, 1))
 
     num_keypoints = heatmaps.shape[0]

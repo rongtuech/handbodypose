@@ -118,12 +118,14 @@ def parse_coco_annotation(img, annotations, transform):
 def parse_hand_annotation(img, annotations, transform):
     cood = []
     join_id = []
+    draw_points = []
     for i, join_index in enumerate(hand_join_indices):
         if annotations[i,2] > 0:
-            cood.append((annotations[i,0], annotations[i,1]))
+            cood.append((round(annotations[i,0]), round(annotations[i,1])))
             join_id.append(join_index)
 
     trans_img, trans_pose_info = transform(image=img, keypoints=(cood, join_id))
+
     poses = np.zeros((1, len(HandJointType), 3), dtype=np.int32)
     trans_cood, trans_join = trans_pose_info
     for ind, t_cood in enumerate(trans_cood):
@@ -326,20 +328,25 @@ class HandTestset(Dataset):
     def get_img_annotation(self, ind):
         img_path = self.imgIds[ind]
         image = cv2.imread(img_path)
-        annos = json.loads(FileTool.readPickle(img_path.replace(".jpg",".json")))
+        annos = json.loads(FileTool.read_text_file(img_path.replace(".jpg", ".json"))[0])
 
         handpoints = np.array(annos["hand_pts"])
-        hand_center = annos["hand_box_center"]
-        max_x, min_x = np.max(handpoints[:,0]), np.min(handpoints[:,0])
-        max_y, min_y = np.max(handpoints[:,1]), np.min(handpoints[:,1])
-        size = int(max_x - min_x)*3 if (max_x - min_x) > (max_y - min_y) \
-            else int(max_y - min_y)*3
+        hand_center = np.array(annos["hand_box_center"])
+        max_x, min_x = np.max(handpoints[:, 0]), np.min(handpoints[:, 0])
+        max_y, min_y = np.max(handpoints[:, 1]), np.min(handpoints[:, 1])
+        size = int(max_x - min_x) * 3 if (max_x - min_x) > (max_y - min_y) \
+            else int(max_y - min_y) * 3
 
-        image = image[int(hand_center[0] - size/2):int(hand_center[0] + size/2),
-                int(hand_center[1] - size/2):int(hand_center[1] + size/2),:]
-        handpoints[:,0] = handpoints[:,0] - int(hand_center[0] - size/2)
-        handpoints[:,1] = handpoints[:,1] - int(hand_center[1] - size/2)
+        image = cv2.copyMakeBorder(image, size // 2, size // 2, size // 2, size // 2,
+                                   cv2.BORDER_REPLICATE)
+        handpoints[:, 0:2] = handpoints[:, 0:2] + size // 2
+        hand_center = hand_center + size // 2
 
+        image = image[int(hand_center[1] - size / 2):int(hand_center[1] + size / 2),
+                int(hand_center[0] - size / 2):int(hand_center[0] + size / 2), :]
+
+        handpoints[:, 0] = handpoints[:, 0] - int(hand_center[0] - size / 2)
+        handpoints[:, 1] = handpoints[:, 1] - int(hand_center[1] - size / 2)
 
         return image, handpoints
 

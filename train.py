@@ -5,7 +5,8 @@ from torch.utils.data import DataLoader
 from loss import compute_loss
 from custom_augmentation import COCOTransformation, COCOTransformationTest
 from dataset import CocoDataset, CocoTestDataset
-from model.mini_model import PoseEstimationWithMobileNet
+from model.mini_model import OpenPoseLightning
+from training_framework_openpose import *
 
 if __name__ == "__main__":
     parser = parse_args()
@@ -34,11 +35,11 @@ if __name__ == "__main__":
         trainLoader = DataLoader(trainSet, batch_size=20, shuffle=True, num_workers=10)
         valLoader = DataLoader(valSet, batch_size=10, shuffle=False, num_workers=5)
 
-        model = PoseEstimationWithMobileNet()
+        model = OpenPoseLightning()
         loss = compute_loss
         optimizer = torch.optim.Adam(model.parameters(), lr=parser.lr)
 
-        train_frame = TrainingProcessBodyPose(trainLoader,
+        train_frame = TrainingProcessOpenPose(trainLoader,
                                                valLoader,
                                                optimizer,
                                                loss,
@@ -56,9 +57,9 @@ if __name__ == "__main__":
         data_transforms = COCOTransformationTest(height=FIX_HEIGHT, width=FIX_WIDTH)
         testSet = CocoTestDataset(parser.test, val_file_info, transform=data_transforms)
         testLoader = DataLoader(testSet, batch_size=1, shuffle=True)
-        model = PoseEstimationWithMobileNet()
-        eval_framework = EvaluationCOCOPose(testLoader,
+        model = OpenPoseLightning()
+        eval_framework = EvaluationOpenPose(testLoader,
                                             model,
                                             parser.weights)
 
-        eval_framework.test()
+        eval_framework.test(num_show=6)

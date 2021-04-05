@@ -231,6 +231,8 @@ class ListTool:
         return resultList
 
 
+
+
 class NNTool:
     @staticmethod
     def cal_out_size(init_size, kernel_size, padding = (0, 0), stride=(1, 1), dilation=(1, 1)):

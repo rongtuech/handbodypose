@@ -1,5 +1,4 @@
 import numpy as np
-
 try:
     from pose_extractor import extract_poses
     print("using c++")

@@ -173,23 +173,26 @@ body_edges = np.array(
      [0, 12], [12, 13], [13, 14]])  # neck - r_hip - r_knee - r_ankle
 
 
-def draw_poses_for_coco(img, poses_2d):
+def draw_poses_for_coco(img, poses_2d, is_filter=True):
     # get only the biggest pose of image
     max_size =0
     max_index = 0
     size_hand = 0
-    for pose_id in range(len(poses_2d)):
-        pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
-        max_x, min_x = np.max(pose[1, :]), np.min(pose[1, :])
-        max_y, min_y = np.max(pose[0, :]), np.min(pose[0, :])
-        temp_size = abs((max_x-min_x)*(max_y-min_y))
-        if  temp_size > max_size:
-            max_size=temp_size
-            max_index = pose_id
-            size_hand = max((max_x-min_x),(max_y-min_y))
-            size_hand = size_hand //8
+    if len(poses_2d) ==0:
+        return img
+    if is_filter:
+        for pose_id in range(len(poses_2d)):
+            pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
+            max_x, min_x = np.max(pose[1, :]), np.min(pose[1, :])
+            max_y, min_y = np.max(pose[0, :]), np.min(pose[0, :])
+            temp_size = abs((max_x-min_x)*(max_y-min_y))
+            if  temp_size > max_size:
+                max_size=temp_size
+                max_index = pose_id
+                size_hand = max((max_x-min_x),(max_y-min_y))
+                size_hand = size_hand //8
 
-    poses_2d = [poses_2d[max_index]]
+        poses_2d = [poses_2d[max_index]]
     for pose_id in range(len(poses_2d)):
         pose = np.array(poses_2d[pose_id][0:-1]).reshape((-1, 3)).transpose()
         was_found = pose[2, :] > 0
@@ -216,6 +219,39 @@ def draw_poses_for_coco(img, poses_2d):
                           (int(r_h[0] - size_hand/2),int(r_h[1] - size_hand/2)),
                            (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
                           (0, 0, 255),1)
+
+    return np.array(poses_2d[0][0:-1]).reshape((-1, 3)),size_hand
+
+def draw_poses_for_optical_flow(img, pose,size_hand):
+    pose = pose.transpose()
+    # get only the biggest pose of image
+    was_found = pose[2, :] > 0
+    for edge in body_edges:
+        if was_found[edge[0]] and was_found[edge[1]]:
+            cv2.line(img, tuple(pose[0:2, edge[0]].astype(int)), tuple(pose[0:2, edge[1]].astype(int)),
+                     (255, 255, 0), 2, cv2.LINE_AA)
+
+    for kpt_id in range(pose.shape[1]):
+        if pose[2, kpt_id] != -1:
+            cv2.circle(img, tuple(pose[0:2, kpt_id].astype(int)), 2, (0, 255, 255), -1, cv2.LINE_AA)
+
+    # get hand position
+    if was_found[4] and was_found[5]:
+        l_h = pose[0:2,5]+ (pose[0:2,5] - pose[0:2,4])/3
+        cv2.rectangle(img,
+                      (int(l_h[0] - size_hand / 2), int(l_h[1] - size_hand / 2)),
+                      (int(l_h[0] + size_hand / 2), int(l_h[1] + size_hand / 2)),
+                      (0,0, 255),1)
+
+    if was_found[10] and was_found[11]:
+        r_h = pose[0:2,11] + (pose[0:2,11] - pose[0:2,10])/3
+        cv2.rectangle(img,
+                      (int(r_h[0] - size_hand/2),int(r_h[1] - size_hand/2)),
+                       (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
+                      (0, 0, 255),1)
+
+
+
 hand_edges = [[0, 1],
      [1, 2], [2, 3], [3, 4], # nose - l_eye - l_ear
      [0, 5], [5, 6],[6, 7],[7, 8],  # nose - r_eye - r_ear
@@ -226,11 +262,11 @@ hand_edges = [[0, 1],
 
 def draw_hand_pose(img, hand_points):
     for edge in hand_edges:
-        if hand_points[edge[0]] is not None and hand_points[edge[1]]:
+        if hand_points[edge[0]] is not None and hand_points[edge[1]] is not None:
             cv2.line(img, (int(hand_points[edge[0]][0]), int(hand_points[edge[0]][1])),
-                     int(hand_points[edge[1]][0]), int(hand_points[edge[1]][1]),
+                          (int(hand_points[edge[1]][0]), int(hand_points[edge[1]][1])),
                      (255, 255, 0), 2, cv2.LINE_AA)
 
-    for point in range(len(hand_points)):
+    for point in hand_points:
         if point is not None:
             cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 255), -1, cv2.LINE_AA)

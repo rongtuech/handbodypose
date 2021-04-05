@@ -168,8 +168,8 @@ class EvaluationOpenPose(EvaluationProcess):
                 # view paf and heatmap here
                 # self.view_paf_heatmap(paf, heatmap, current_batch)
                 # parse paf and heatmap here
-                # self.parser_output((paf, heatmap), origin_image, current_batch)
-                self.parser_hand_output(heatmap,origin_image,current_batch)
+                self.parser_output((paf, heatmap), origin_image, current_batch)
+                # self.parser_hand_output(heatmap,origin_image,current_batch)
                 current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
                 sum += current_time
                 current_batch+=1
@@ -191,18 +191,18 @@ class EvaluationOpenPose(EvaluationProcess):
         current_time = cv2.getTickCount()
         poses_2d = parse_poses(pred,0.125)
 
-        draw_poses_for_coco(img, poses_2d)
+        draw_poses_for_coco(img, poses_2d, is_filter=False)
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         cv2.putText(img, 'parsing time: {}'.format(current_time),
-                    (20, 40), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
-        cv2.imwrite("./_image/img_with_pose_%d.jpg"%ind, img)
+                    (10, 20), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
+        cv2.imwrite("./_image/img_coco_with_pose_%d.jpg"%ind, img)
 
     def parser_hand_output(self, pred_heat, img, ind):
         current_time = cv2.getTickCount()
-        poses_2d = extract_hand_pose(pred_heat,0.125)
+        poses_2d = extract_hand_pose(pred_heat[0:-1],0.125)
 
         draw_hand_pose(img, poses_2d)
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         cv2.putText(img, 'parsing time: {}'.format(current_time),
-                    (20, 40), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
+                    (10, 20), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
         cv2.imwrite("./_image/img_with_pose_%d.jpg"%ind, img)
