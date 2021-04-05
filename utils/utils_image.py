@@ -222,6 +222,7 @@ def draw_poses_for_coco(img, poses_2d, is_filter=True):
 
     return np.array(poses_2d[0][0:-1]).reshape((-1, 3)),size_hand
 
+
 def draw_poses_for_optical_flow(img, pose,size_hand):
     pose = pose.transpose()
     # get only the biggest pose of image
