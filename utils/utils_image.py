@@ -2,7 +2,7 @@ import os
 import cv2
 import numpy as np
 import math
-import torch
+from setting import *
 
 
 def normalize_in(img: np.array) -> np.array:
@@ -163,15 +163,6 @@ def tensor2npImage(img_tensor: np.array) -> np.array:
     img_tensor = np.clip(img_tensor, a_min=0, a_max=255)
     return img_tensor
 
-body_edges = np.array(
-    [[0, 1],  # neck - nose
-     [1, 16], [16, 18],  # nose - l_eye - l_ear
-     [1, 15], [15, 17],  # nose - r_eye - r_ear
-     [0, 3], [3, 4], [4, 5],     # neck - l_shoulder - l_elbow - l_wrist
-     [0, 9], [9, 10], [10, 11],  # neck - r_shoulder - r_elbow - r_wrist
-     [0, 6], [6, 7], [7, 8],        # neck - l_hip - l_knee - l_ankle
-     [0, 12], [12, 13], [13, 14]])  # neck - r_hip - r_knee - r_ankle
-
 
 def draw_poses_for_coco(img, poses_2d, is_filter=True):
     # get only the biggest pose of image
@@ -251,23 +242,13 @@ def draw_poses_for_optical_flow(img, pose,size_hand):
                        (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
                       (0, 0, 255),1)
 
-
-
-hand_edges = [[0, 1],
-     [1, 2], [2, 3], [3, 4], # nose - l_eye - l_ear
-     [0, 5], [5, 6],[6, 7],[7, 8],  # nose - r_eye - r_ear
-     [0, 9], [9,10], [10, 11],[11, 12],     # neck - l_shoulder - l_elbow - l_wrist
-     [0, 13], [13, 14], [14, 15],[15, 16],  # neck - r_shoulder - r_elbow - r_wrist
-     [0, 17], [17, 18], [18, 19],[19, 20]]  # neck - r_hip - r_knee - r_ankle
-
-
-def draw_hand_pose(img, hand_points):
-    for edge in hand_edges:
-        if hand_points[edge[0]] is not None and hand_points[edge[1]] is not None:
-            cv2.line(img, (int(hand_points[edge[0]][0]), int(hand_points[edge[0]][1])),
-                          (int(hand_points[edge[1]][0]), int(hand_points[edge[1]][1])),
+def draw_pose(img, points, edge_list):
+    for edge in edge_list:
+        if points[edge[0]] is not None and points[edge[1]] is not None:
+            cv2.line(img, (int(points[edge[0]][0]), int(points[edge[0]][1])),
+                          (int(points[edge[1]][0]), int(points[edge[1]][1])),
                      (255, 255, 0), 2, cv2.LINE_AA)
 
-    for point in hand_points:
+    for point in points:
         if point is not None:
             cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 255), -1, cv2.LINE_AA)

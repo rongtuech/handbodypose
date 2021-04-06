@@ -1,5 +1,5 @@
 from enum import Enum
-
+import numpy as np
 
 class TypeData(Enum):
     BODY = 0
@@ -139,3 +139,21 @@ HANDLINES = [
     [HandJointType.FINGER_4_1, HandJointType.FINGER_4_2],
     [HandJointType.FINGER_4_2, HandJointType.FINGER_4_3],
 ]
+
+
+body_edges = np.array(
+    [[0, 1],  # neck - nose
+     [1, 16], [16, 18],  # nose - l_eye - l_ear
+     [1, 15], [15, 17],  # nose - r_eye - r_ear
+     [0, 3], [3, 4], [4, 5],     # neck - l_shoulder - l_elbow - l_wrist
+     [0, 9], [9, 10], [10, 11],  # neck - r_shoulder - r_elbow - r_wrist
+     [0, 6], [6, 7], [7, 8],        # neck - l_hip - l_knee - l_ankle
+     [0, 12], [12, 13], [13, 14]])  # neck - r_hip - r_knee - r_ankle
+
+
+hand_edges = [[0, 1],
+     [1, 2], [2, 3], [3, 4], # nose - l_eye - l_ear
+     [0, 5], [5, 6],[6, 7],[7, 8],  # nose - r_eye - r_ear
+     [0, 9], [9,10], [10, 11],[11, 12],     # neck - l_shoulder - l_elbow - l_wrist
+     [0, 13], [13, 14], [14, 15],[15, 16],  # neck - r_shoulder - r_elbow - r_wrist
+     [0, 17], [17, 18], [18, 19],[19, 20]]  # neck - r_hip - r_knee - r_ankle
