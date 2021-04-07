@@ -51,19 +51,26 @@ previous_poses_2d = []
 
 
 def parse_poses(inference_results, input_scale):
+    """
+    parse inferece (paf, heatmap)
+    :param inference_results:
+    :param input_scale: scale of image and heatmap
+    :return:list of pose = tuple of  (keypointsx3) + pose confidence)
+    """
     global previous_poses_2d
     poses_2d = get_root_relative_poses(inference_results)
     # return poses_2d
     poses_2d_scaled = []
+    poses_prop = []
     for pose_2d in poses_2d:
         num_kpt = (pose_2d.shape[0] - 1) // 3
-        pose_2d_scaled = np.ones(pose_2d.shape[0], dtype=np.float32) * -1  # +1 for pose confidence
+        pose_2d_scaled = np.ones((num_kpt, 3), dtype=np.float32) * -1  # +1 for pose confidence
         for kpt_id in range(num_kpt):
             if pose_2d[kpt_id * 3] != -1:
                 pose_2d_scaled[kpt_id * 3] = int(pose_2d[kpt_id * 3] / input_scale)
                 pose_2d_scaled[kpt_id * 3 + 1] = int(pose_2d[kpt_id * 3 + 1] / input_scale)
                 pose_2d_scaled[kpt_id * 3 + 2] = pose_2d[kpt_id * 3 + 2]
-        pose_2d_scaled[-1] = pose_2d[-1]
         poses_2d_scaled.append(pose_2d_scaled)
+        poses_prop.append(pose_2d[-1])
 
-    return np.array(poses_2d_scaled)
+    return poses_2d_scaled, poses_prop

@@ -242,13 +242,15 @@ def draw_poses_for_optical_flow(img, pose,size_hand):
                        (int(r_h[0] + size_hand/2),int(r_h[1] + size_hand/2)),
                       (0, 0, 255),1)
 
-def draw_pose(img, points, edge_list):
-    for edge in edge_list:
-        if points[edge[0]] is not None and points[edge[1]] is not None:
-            cv2.line(img, (int(points[edge[0]][0]), int(points[edge[0]][1])),
-                          (int(points[edge[1]][0]), int(points[edge[1]][1])),
-                     (255, 255, 0), 2, cv2.LINE_AA)
 
-    for point in points:
-        if point is not None:
-            cv2.circle(img, (int(point[0]), int(point[1])), 2, (0, 255, 255), -1, cv2.LINE_AA)
+def draw_pose(img, list_points, edge_list):
+    for points in list_points:
+        for edge in edge_list:
+            if points[edge[0],2] != -1 and points[edge[1],2] != -1:
+                cv2.line(img, (int(points[edge[0],0]), int(points[edge[0],1])),
+                              (int(points[edge[1],0]), int(points[edge[1],1])),
+                         (255, 255, 0), 2, cv2.LINE_AA)
+
+        for ind in range(points.shape[0]):
+            if points[ind,2] != -1:
+                cv2.circle(img, (int(points[ind,0]), int(points[ind,1])), 2, (0, 255, 255), -1, cv2.LINE_AA)

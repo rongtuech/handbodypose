@@ -60,4 +60,4 @@ class FaceMeshDetector:
 
     def __delete__(self):
         self.faces.close()
-        print("release mem for hand processor")
+        print("release mem for face processor")
