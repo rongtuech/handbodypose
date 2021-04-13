@@ -8,7 +8,7 @@ class Pose:
     """
     store and parsing for drawing, optical flow
     """
-    def __init__(self, image_scale,  base_on_prob = True):
+    def __init__(self, image_scale,  base_on_prob = False):
         self.image_scale = image_scale
         self.poses_list = []
         self.poses_prob = []
@@ -21,12 +21,14 @@ class Pose:
     def parser_pose(self, paf, heatmap):
         # get pose list ([keypoints x 3], and prob)
         self.poses_list, self.poses_prob = parse_poses((paf, heatmap), self.image_scale)
-
+        self.hand_window = []
+        self.head_window = []
         # get the best pose to index 0
-        self.get_best_pose()
+        if len(self.poses_list) > 0:
+            self.get_best_pose()
 
-        # get the hand and head window 0
-        self.get_hand_head_window()
+            # get the hand and head window 0
+            self.get_hand_head_window()
 
     def get_best_pose(self):
         # get only the biggest pose of image
@@ -80,19 +82,28 @@ class Pose:
                                   )))
             self.hand_window.append(handtuple)
 
-            self.head_window.append(((
-                                      int(current_pose[1,0:2] - size_hand / 2),
-                                      int(current_pose[1,0:2] - size_hand / 2)
-                                  ),
-                                  (
-                                      int(current_pose[0,0:2] + size_hand / 2),
-                                      int(current_pose[0,0:2] + size_hand / 2)
-                                  )))
+            if was_found[1]:
+                center_points = current_pose[1,0:2]
+                self.head_window.append(((
+                                          int(center_points[0] - size_hand / 2),
+                                          int(center_points[1] - size_hand / 2)
+                                      ),
+                                      (
+                                          int(center_points[0] + size_hand / 2),
+                                          int(center_points[1] + size_hand / 2)
+                                      )))
+            else:
+                self.head_window.append([])
 
-    def get_hand_head_images(self,origin_image):
+    def get_hand_head_images(self, origin_image,ratio, pad):
         hand_img = []
-        for window in self.hand_window[0]:
-            hand_img.append(origin_image[window[0][1]:window[1][1], window[0][0]: window[1][0]])
+        if len(self.hand_window) >0:
+            for window in self.hand_window[0]:
+                temp_img = origin_image[int(window[0][1]*ratio):int(window[1][1]*ratio),
+                                int(max(window[0][0]-pad,0)*ratio): int(max(window[1][0]-pad,0)*ratio)]
 
-        return hand_img, origin_image[self.head_window[0][0][1]:self.head_window[0][1][1],
-                                      self.head_window[0][0][0]: self.head_window[0][1][0]]
+                # print(int(window[0][1]*ratio),int(window[1][1]*ratio),
+                #             int((window[0][0]-pad)*ratio), int((window[1][0]-pad)*ratio))
+                hand_img.append(temp_img)
+
+        return hand_img

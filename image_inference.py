@@ -27,36 +27,41 @@ def inference_image(model, parser):
     list_image_paths = glob(os.path.join(parser.input, "*.jpg"))
     preprocess = InferenceTransformation(368, 368)
     pose_parser = Pose(image_scale=0.125)
-    hand_model = HandPoseDetector()
-    face_model = FaceMeshDetector()
+    hand_model = HandPoseDetector(static_model=True)
+    face_model = FaceMeshDetector(static_model=True)
 
     average_time = 0
     for ind, image_path in tqdm.tqdm(enumerate(list_image_paths)):
         origin_image = cv2.imread(image_path)
 
+        height, width,_ = origin_image.shape
+        ratio_scale = height / 368
+        add_width = (368 - int(368 * width / height))//2
         current_time = cv2.getTickCount()
-        origin_image = preprocess(origin_image)
-        image = torch.Tensor(preprocess_tensor(origin_image.copy())).unsqueeze(0)
+        process_image = preprocess(origin_image)
+        image = torch.Tensor(preprocess_tensor(process_image.copy())).unsqueeze(0).cuda()
 
         paf, heatmap = model(image)
-        paf = paf.detach().numpy()[0]
-        heatmap = heatmap.detach().numpy()[0]
+        paf = paf.detach().cpu().numpy()[0]
+        heatmap = heatmap.detach().cpu().numpy()[0]
 
-        pose_parser.parse_poses(paf, heatmap)
-        draw_pose(origin_image, pose_parser.poses_list, body_edges)
-        hand_images, head_image = pose_parser.get_hand_head_window()
+        pose_parser.parser_pose(paf, heatmap)
+        draw_pose(process_image, pose_parser.poses_list, pose_parser.hand_window, body_edges)
+        hand_images = pose_parser.get_hand_head_images(origin_image,ratio_scale, add_width)
 
-        for image in hand_images:
-            hand_model(image)
-
-        for image in head_image:
-            face_model(image)
+        for hand_ind, image in enumerate(hand_images):
+            image, _ = hand_model(image)
+            # cv2.imwrite("./_image/temp_hand_%d.jpg"%ind, image)
+            if hand_ind == 1:
+                process_image[-100:,:100] = cv2.resize(image,(100,100))
+            elif hand_ind == 0:
+                process_image[-100:,-100:] = cv2.resize(image,(100,100))
 
         current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
         average_time += current_time
-        cv2.putText(origin_image, 'parsing time: {}'.format(current_time),
+        cv2.putText(process_image, 'parsing time: {}'.format(current_time),
                     (10, 20), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
-        cv2.imwrite("./_image/img_with_pose_%d.jpg" % ind, origin_image)
+        cv2.imwrite("./_image/img_with_pose_%d.jpg" % ind, process_image)
     print("avg time: %f" % (average_time / len(list_image_paths)))
 
 def inference_video(model, parser, is_optical_flow=False):
@@ -67,8 +72,8 @@ def inference_video(model, parser, is_optical_flow=False):
     preprocess = InferenceTransformation(FIX_SIZE, FIX_SIZE)
     mean_time = 0
     pose_parser = Pose(image_scale=0.125)
-    hand_model = HandPoseDetector()
-    face_model = FaceMeshDetector()
+    hand_model = HandPoseDetector(static_model= True)
+    face_model = FaceMeshDetector(static_model= False)
     lk_params = dict(winSize=(100, 100),
                      maxLevel=10,
                      criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 20, 0.03))
@@ -76,21 +81,23 @@ def inference_video(model, parser, is_optical_flow=False):
         vidcap = cv2.VideoCapture(video_path)
         success, image = vidcap.read()
         height, width,_ = image.shape
+        ratio_scale = height / FIX_SIZE
+        add_width = (FIX_SIZE - int(FIX_SIZE * width / height))//2
         count = 0
-        video = cv2.VideoWriter('_image/video_no_optical_flow%d.avi'%ind, cv2.VideoWriter_fourcc(*'DIVX'), 30, (FIX_SIZE, FIX_SIZE))
-        last_pose = None
+        video = cv2.VideoWriter('_image/video_with_hand_optical%d.avi'%ind, cv2.VideoWriter_fourcc(*'DIVX'), 30, (FIX_SIZE, FIX_SIZE))
+
         old_gray = None
-        size_hand = 100
+        num_frame = 0
         while success:
             success, origin_image = vidcap.read()
             if success:
                 current_time = cv2.getTickCount()
-                origin_image = cv2.rotate(origin_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
-                origin_image = preprocess(origin_image)
-                if is_optical_flow and 0<count <4:
+                # origin_image = cv2.rotate(origin_image, cv2.ROTATE_90_COUNTERCLOCKWISE)
+                process_image = preprocess(origin_image)
+                if is_optical_flow and 0<count <4 and len(pose_parser.poses_list) >0:
                     visible_mask = pose_parser.poses_list[0][:,2]>0
-                    visible_point = last_pose[visible_mask][:,0:2] # get only coord
-                    current_gray = cv2.cvtColor(origin_image, cv2.COLOR_BGR2GRAY)
+                    visible_point = pose_parser.poses_list[0][visible_mask][:,0:2] # get only coord
+                    current_gray = cv2.cvtColor(process_image, cv2.COLOR_BGR2GRAY)
                     visible_point = np.expand_dims(visible_point.astype(np.float32), axis = 1)
                     p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, current_gray, visible_point,
                                                            None, **lk_params)
@@ -100,34 +107,41 @@ def inference_video(model, parser, is_optical_flow=False):
                     pose_parser.poses_list[0][np.where(visible_mask),:-1] = visible_point.copy()
                     pose_parser.get_hand_head_window()
                 else:
-                    image = torch.Tensor(preprocess_tensor(origin_image.copy())).unsqueeze(0)
+                    image = torch.Tensor(preprocess_tensor(process_image.copy())).unsqueeze(0)
                     image = image.cuda()
                     paf, heatmap = model(image)
                     paf = paf.detach().cpu().numpy()[0]
                     heatmap = heatmap.detach().cpu().numpy()[0]
 
-                    pose_parser.parse_poses(paf, heatmap)
-                    old_gray = cv2.cvtColor(origin_image, cv2.COLOR_BGR2GRAY)
+                    pose_parser.parser_pose(paf, heatmap)
+                    old_gray = cv2.cvtColor(process_image, cv2.COLOR_BGR2GRAY)
                     count = 0
 
-                draw_pose(origin_image, pose_parser.poses_list, body_edges)
-                hand_images, head_image = pose_parser.get_hand_head_window()
+                draw_pose(process_image, pose_parser.poses_list, pose_parser.hand_window, body_edges)
+                hand_images = pose_parser.get_hand_head_images(origin_image,ratio_scale, add_width)
 
-                for image in hand_images:
-                    hand_model(image)
+                hand_imgs = []
+                for hand_ind, image in enumerate(hand_images):
+                    image, _ = hand_model(cv2.resize(image, (100, 100)))
+                    # cv2.imwrite("./_image/temp_hand_%d.jpg"%ind, image)
+                    hand_imgs.append(image)
 
-                for image in head_image:
-                    face_model(image)
                 current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
 
+                for hand_ind, image in enumerate(hand_imgs):
+                    if hand_ind == 1:
+                        process_image[-100:, :100] = image
+                    elif hand_ind == 0:
+                        process_image[-100:, -100:] = image
                 if mean_time == 0:
                     mean_time = current_time
                 else:
                     mean_time = mean_time * 0.95 + current_time * 0.05
-                cv2.putText(origin_image, 'FPS: {}'.format(int(1 / mean_time * 10) / 10),
+                cv2.putText(process_image, 'FPS: {}'.format(int(1 / mean_time * 10) / 10),
                             (10, 20), cv2.FONT_HERSHEY_COMPLEX, 1, (0, 0, 255))
-                video.write(origin_image)
+                video.write(process_image)
             count += 1
+            num_frame+=1
         vidcap.release()
         video.release()
         print(count)
@@ -146,6 +160,7 @@ if __name__ == "__main__":
     parser.add_argument('-o', '--output', type=str, default="_image",
                         help=r'output image folder')
     parser.add_argument('-v', "--is_video", type=bool, default=True)
+    parser.add_argument('-wh', "--with_hand", type=bool, default= True)
     parser = parser.parse_args()
 
     model = OpenPoseLightning()

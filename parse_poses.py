@@ -67,9 +67,9 @@ def parse_poses(inference_results, input_scale):
         pose_2d_scaled = np.ones((num_kpt, 3), dtype=np.float32) * -1  # +1 for pose confidence
         for kpt_id in range(num_kpt):
             if pose_2d[kpt_id * 3] != -1:
-                pose_2d_scaled[kpt_id * 3] = int(pose_2d[kpt_id * 3] / input_scale)
-                pose_2d_scaled[kpt_id * 3 + 1] = int(pose_2d[kpt_id * 3 + 1] / input_scale)
-                pose_2d_scaled[kpt_id * 3 + 2] = pose_2d[kpt_id * 3 + 2]
+                pose_2d_scaled[kpt_id,0] = int(pose_2d[kpt_id * 3] / input_scale)
+                pose_2d_scaled[kpt_id, 1] = int(pose_2d[kpt_id * 3 + 1] / input_scale)
+                pose_2d_scaled[kpt_id , 2] = pose_2d[kpt_id * 3 + 2]
         poses_2d_scaled.append(pose_2d_scaled)
         poses_prop.append(pose_2d[-1])
 
