@@ -2,7 +2,7 @@ Hand and body pose
 ========
 -----
 # 1) Introduce:
-This Git is the combination of lightweight openpose model (training/testing code) + mediapipe library to extract the full body pose and hand pose.
+This Git is the combination of lightweight openpose model (training/testing code) + mediapipe library to extract the full body pose and hand pose. The inference is also included optical flow algorithm for speeding up.
 The model and post-process code is modified from Daniil-Osokin repository. Please check his original git for referece.
 + https://github.com/Daniil-Osokin/lightweight-human-pose-estimation.pytorch
 + https://github.com/Daniil-Osokin/lightweight-human-pose-estimation-3d-demo.pytorch
