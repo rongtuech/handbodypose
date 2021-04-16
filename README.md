@@ -33,3 +33,6 @@ Repository includes:
 - [] Extract facemesh. 
 - [] Improve Optical flow process. 
 - [] C++ inference code for full recognizing process.  
+
+
+PLEASE CHECK THE ATTACHED LICENSE FOR USING
