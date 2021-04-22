@@ -34,5 +34,14 @@ Repository includes:
 - [] Improve Optical flow process. 
 - [] C++ inference code for full recognizing process.  
 
+------
+# 5) Current result:
+| Model                                                 | FPS        |
+| ----------------------------------------------------- | ---------- |
+| + Optical flow algorithm -  Hand joints detection     | ~ 50       |
+| - Optical flow algorithm -  Hand joints detection     | ~ 26       |
+| + Optical flow algorithm + Hand joints detection      | ~ 22       |
+| - Optical flow algorithm +  Hand joints detection     | ~ 14       |
+
 
 PLEASE CHECK THE ATTACHED LICENSE FOR USING
