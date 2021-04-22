@@ -43,5 +43,10 @@ Repository includes:
 | + Optical flow algorithm + Hand joints detection      | ~ 22       |
 | - Optical flow algorithm +  Hand joints detection     | ~ 14       |
 
+![Pose 10](result_images/img_with_pose_10.jpg)
+![Pose 2](result_images/img_with_pose_2.jpg)
+![Pose 3](result_images/img_with_pose_3.jpg)
+![Pose 4](result_images/img_with_pose_4.jpg)
+![Pose 5](result_images/img_with_pose_5.jpg)
 
 PLEASE CHECK THE ATTACHED LICENSE FOR USING
