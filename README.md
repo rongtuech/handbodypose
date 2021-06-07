@@ -29,10 +29,9 @@ Repository includes:
 ------
 # 4) Future work:
 
-- [x] Combine with MediaPipe lib. 
-- [] Extract facemesh. 
+- [x] Combine with MediaPipe lib (Done).  
 - [] Improve Optical flow process. 
-- [] C++ inference code for full recognizing process.  
+- [] ONNX C++ inference code for full recognizing process (Doing).  
 
 ------
 # 5) Current result:
