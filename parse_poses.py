@@ -23,9 +23,6 @@ def get_root_relative_poses(inference_results):
 
     upsample_ratio = 4
     found_poses = extract_poses(heatmap[0:-1], paf_map, upsample_ratio)[0]
-    # scale coordinates to features space
-    found_poses[:, 0:-1:3] /= upsample_ratio
-    found_poses[:, 1:-1:3] /= upsample_ratio
 
     poses_2d = []
     num_kpt_panoptic = 19
@@ -57,7 +54,6 @@ def parse_poses(inference_results, input_scale):
     :param input_scale: scale of image and heatmap
     :return:list of pose = tuple of  (keypointsx3) + pose confidence)
     """
-    global previous_poses_2d
     poses_2d = get_root_relative_poses(inference_results)
     # return poses_2d
     poses_2d_scaled = []
@@ -67,8 +63,8 @@ def parse_poses(inference_results, input_scale):
         pose_2d_scaled = np.ones((num_kpt, 3), dtype=np.float32) * -1  # +1 for pose confidence
         for kpt_id in range(num_kpt):
             if pose_2d[kpt_id * 3] != -1:
-                pose_2d_scaled[kpt_id,0] = int(pose_2d[kpt_id * 3] / input_scale)
-                pose_2d_scaled[kpt_id, 1] = int(pose_2d[kpt_id * 3 + 1] / input_scale)
+                pose_2d_scaled[kpt_id,0] = int(pose_2d[kpt_id * 3])
+                pose_2d_scaled[kpt_id, 1] = int(pose_2d[kpt_id * 3 + 1])
                 pose_2d_scaled[kpt_id , 2] = pose_2d[kpt_id * 3 + 2]
         poses_2d_scaled.append(pose_2d_scaled)
         poses_prop.append(pose_2d[-1])
