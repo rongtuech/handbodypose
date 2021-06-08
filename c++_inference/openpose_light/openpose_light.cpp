@@ -11,6 +11,9 @@
 #include <opencv2/core/core.hpp>
 #include <opencv2/highgui/highgui.hpp>
 #include "opencv2/imgproc/imgproc.hpp"
+#include "extract_poses.hpp"
+#include "human_pose.hpp"
+
 using namespace std;
 using namespace cv;
 
@@ -25,6 +28,10 @@ const int OUTPUT_PAF = 19;
 // size of heatmap 18 joints
 const int OUTPUT_HEATMAP = 18;
 const int BLANK_INDEX = 0;
+const float IMAGE_SCALE = 0.125;
+const int LEFT_HAND_INDEX = 4;
+const int RIGHT_HAND_INDEX = 10;
+const int HAND_WINDOW_SIZE = 100;
 
 
 //*****************************************************************************
@@ -37,9 +44,9 @@ private:
 	OrtSessionOptions* session_options;
 
 #ifdef _WIN32
-	const wchar_t* model_path = L"D:/c++/openpose_light/_models/bodypose_light.onnx";
+	const wchar_t* model_path = L"F:/ilabo/openpose_lightning/_trained_model/bodypose_light.onnx";
 #else
-	const char* model_path = "D:/c++/openpose_light/_models/bodypose_light.onnx";
+	const char* model_path = "F:/ilabo/openpose_lightning/_trained_model/bodypose_light.onnx";
 #endif
 
 public:
@@ -73,8 +80,11 @@ public:
 		}
 	}
 
+	bool comparePose(HumanPose p1, HumanPose p2) {
+		return p1.score < p2.score;
+	}
 
-	void detectPose(vector<float> img) 
+	HumanPose detectPose(vector<float> img) 
 	/// <summary>
 	/// get image -> export the 
 	/// </summary>
@@ -106,16 +116,25 @@ public:
 		g_ort->GetTensorMutableData(output_tensor[0], (void**)&output_paf);
 		g_ort->GetTensorMutableData(output_tensor[1], (void**)&output_heatmap);
 		
-		// get export 2 output here 
+		// get export 2 output here: parse pose + get hand window
+		Mat paf = new Mat(OUTPUT_PAF * 2, HEIGHT, WIDTH, CV_32F, output_paf);
+		Mat heatmap = new Mat(OUTPUT_HEATMAP * 2, HEIGHT, WIDTH, CV_32F, output_heatmap);
 
+		// parsing pose 
+		std::vector<HumanPose> allPose = human_pose_estimation::extractPoses(paf, heatmap, 4);
+		sort(allPose.begin(), allPose.end(), comparePose);
+		HumanPose* bestPose = allPose.end();
+		// get top pose: 
 
+		// TODO: delete variable here. 
 
 		// release mem for tensor
 		g_ort->ReleaseValue(input_tensor);
 		g_ort->ReleaseValue(output_tensor[0]);
 		g_ort->ReleaseValue(output_tensor[1]);
-
 		// TODO: remember to release mem for output paf and heatmap
+
+		return bestPose
 	}
 };
 
@@ -168,7 +187,11 @@ cv::Mat GetFitRatioImage(const cv::Mat& img)
 	return square;
 }
 
-vector<float> GetFloatVectorFromMat(cv::Mat& img) {
+vector<float> GetFloatVectorFromMat(cv::Mat& img) 
+/// <summary>
+/// normalize image and convert to desiable for ONNX model
+/// </summary>
+{
 
 	Mat chans[3];
 	split(img, chans);
@@ -189,13 +212,49 @@ vector<float> GetFloatVectorFromMat(cv::Mat& img) {
 	return result;
 }
 
-int main(int argc, char* argv[]) {
-	// create recognizor
-	OnnxRecognition* recognizor = new OnnxRecognition();
+void GetHandWindow(HumanPose* pose, vector<cv::Point>& handWindow) 
+/// <summary>
+/// get hand position from elbow to wrist of each hand.
+/// </summary>
+{
+	if (pose->keypoints[LEFT_HAND_INDEX].z > 0 && pose->keypoints[LEFT_HAND_INDEX+1].z > 0) {
+		int x = pose->keypoints[LEFT_HAND_INDEX + 1].x +
+			(int)(pose->keypoints[LEFT_HAND_INDEX + 1].x - pose->keypoints[LEFT_HAND_INDEX].x) / 3;
+		int y = pose->keypoints[LEFT_HAND_INDEX + 1].y +
+			(int)(pose->keypoints[LEFT_HAND_INDEX + 1].y - pose->keypoints[LEFT_HAND_INDEX].y) / 3;
+		handWindow.push_back(Point(x, y));
+	}
+	if (pose->keypoints[RIGHT_HAND_INDEX].z > 0 && pose->keypoints[RIGHT_HAND_INDEX + 1].z > 0) {
+		int x = pose->keypoints[RIGHT_HAND_INDEX + 1].x +
+			(int)(pose->keypoints[RIGHT_HAND_INDEX + 1].x - pose->keypoints[RIGHT_HAND_INDEX].x) / 3;
+		int y = pose->keypoints[RIGHT_HAND_INDEX + 1].y +
+			(int)(pose->keypoints[RIGHT_HAND_INDEX + 1].y - pose->keypoints[RIGHT_HAND_INDEX].y) / 3;
+		handWindow.push_back(Point(x, y));
+	}
+}
 
+void DrawPose(cv::Mat& img, HumanPose* pose)
+/// <summary>
+/// draw point to image
+/// </summary>
+{
+	for (int i : = 0;i < OUTPUT_HEATMAP;i++) {
+		cv::circle(img, Point(pose->keypoints[i].x, pose->keypoints[i].y), 10, Scalar(0, 0, 255),
+			cv::FILLED,
+			cv::LINE_8
+		);
+	}
+	cv::imshow("Best Pose", img);
+}
+
+void GetPoseFromImage(OnnxRecognition* recognizer, string imagePath) 
+/// <summary>
+/// get Pose from an image
+/// </summary>
+{
 	// read image 320 x 320
 	Mat image;
-	image = imread("D:/ocr_code/r_lstm/data/1.jpg");   // Read the file
+	image = imread(imagePath);   // Read the file
 	if (!image.data)                              // Check for invalid input
 	{
 		cout << "Could not open or find the image" << std::endl;
@@ -203,19 +262,81 @@ int main(int argc, char* argv[]) {
 	}
 
 	image = GetFitRatioImage(image);
+	Mat originImage = image.clone();
 
 	// start to count time 
 	high_resolution_clock::time_point t1 = high_resolution_clock::now();
 
-	recognizor->detectPose(GetFloatVectorFromMat(image));
-	
+	HumanPose* bestPose = recognizer->detectPose(GetFloatVectorFromMat(image));
+
 	// finish to count time
 	high_resolution_clock::time_point t2 = high_resolution_clock::now();
 	duration<double> time_span = duration_cast<duration<double>>(t2 - t1);
 	std::cout << "It took me " << time_span.count() << " seconds.";
 
+	// draw pose
+	DrawPose(originImage, bestPose)
+}
+
+void extractPoint2fFromPose(HumanPose* pose, vector<Point2f>& good_points) {
+	good_points.clear();
+	for (uint i = 0; i < pose->keypoints.size();i++) {
+		good_point.push_back(Point2f(pose->keypoints[i].x, pose->keypoints[i].y))
+	}
+}
+
+void GetPoseFromVideo(OnnxRecognition* recognizer, string videoPath)
+/// <summary>
+/// get Pose from an video
+/// </summary>
+{
+	int count = 0;
+	VideoCapture capture(videoPath);
+	vector<uchar> status;
+	vector<float> err;
+	vector<Point2f> p0,p1;
+	TermCriteria criteria = TermCriteria((TermCriteria::COUNT) + (TermCriteria::EPS), 10, 0.03);
+	if (!capture.isOpened()) {
+		cerr << "unable to open file!" << end;
+		return 0;
+	}
+
+
+	while (true) {
+		Mat frame, frame_gray;
+		capture >> frame;
+		if (frame.empty())
+			break;
+		frame = GetFitRatioImage(frame);
+		cvtColor(frame, frame_gray, COLOR_BGR2GRAY);
+
+		if (count == 0) {
+			// start to count time 
+			HumanPose* bestPose = recognizer->detectPose(GetFloatVectorFromMat(frame));
+			extractPoint2fFromPose(bestPose, p0);
+		}
+		else {
+			// calculate optical flow
+			calcOpticalFlowPyrLK(old_gray, frame_gray, p0, p1, status, err, Size(15, 15), 2, criteria);
+			p0 = p1;
+		}
+		old_gray = frame_gray.clone();
+		count++;
+		if (count > 5) {
+			count = 0;
+		}
+	}
+		
+}
+
+int main(int argc, char* argv[]) {
+	// create recognizor
+	OnnxRecognition* recognizer = new OnnxRecognition();
+
+	
+
 	// release mem for the model.
-	delete recognizor;
+	delete recognizer;
 
 	return 0;
 }
