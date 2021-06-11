@@ -55,7 +55,7 @@ def get_engine(onnx_file_path, engine_file_path=""):
         return build_engine()
 
 
-class PoseDetectionONNX:
+class PoseDetectionONNXTensorRT:
     def __init__(self, onnx_path, tensor_path):
         '''
         read onnx and create tensorrt engine.
