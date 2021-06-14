@@ -82,21 +82,22 @@ class Pose:
                                   )))
             self.hand_window.append(handtuple)
 
-            if was_found[1]:
-                center_points = current_pose[1,0:2]
-                self.head_window.append(((
-                                          int(center_points[0] - size_hand / 2),
-                                          int(center_points[1] - size_hand / 2)
-                                      ),
-                                      (
-                                          int(center_points[0] + size_hand / 2),
-                                          int(center_points[1] + size_hand / 2)
-                                      )))
-            else:
-                self.head_window.append([])
+            # if was_found[1]:
+            #     center_points = current_pose[1,0:2]
+            #     self.head_window.append(((
+            #                               int(center_points[0] - size_hand / 2),
+            #                               int(center_points[1] - size_hand / 2)
+            #                           ),
+            #                           (
+            #                               int(center_points[0] + size_hand / 2),
+            #                               int(center_points[1] + size_hand / 2)
+            #                           )))
+            # else:
+            #     self.head_window.append([])
 
     def get_hand_head_images(self, origin_image,ratio, pad):
         hand_img = []
+        w,h = 0,0
         if len(self.hand_window) >0:
             for window in self.hand_window[0]:
                 temp_img = origin_image[int(window[0][1]*ratio):int(window[1][1]*ratio),
@@ -104,6 +105,15 @@ class Pose:
 
                 # print(int(window[0][1]*ratio),int(window[1][1]*ratio),
                 #             int((window[0][0]-pad)*ratio), int((window[1][0]-pad)*ratio))
+                if len(hand_img) ==0:
+                    w,h, _ = temp_img.shape
+                else:
+                    w_t,h_t, _ = temp_img.shape
+                    if w_t != w:
+                        temp_img = temp_img[:w,:h]
                 hand_img.append(temp_img)
-
-        return hand_img
+        if len(hand_img) == 0:
+            return None
+        else:
+            img_sum = cv2.hconcat(hand_img)
+            return img_sum

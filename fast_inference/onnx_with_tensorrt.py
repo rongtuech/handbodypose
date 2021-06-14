@@ -73,7 +73,7 @@ class PoseDetectionONNXTensorRT:
         self.inputs, self.outputs, self.bindings, self.stream = \
             common.allocate_buffers(self.engine)
 
-    def inference(self, input):
+    def __call__(self, input):
         # init image to input location.
         np.copyto(self.inputs[0].host, input.ravel())
 
@@ -82,19 +82,20 @@ class PoseDetectionONNXTensorRT:
         inference_start_time = time.time()
 
         # Fetch output from the model
-        [pafs, heatmaps] = common.do_inference_v2(self.context,
+        [heatmaps,pafs] = common.do_inference_v2(self.context,
                                                   bindings=self.bindings,
                                                   inputs=self.inputs,
                                                   outputs=self.outputs,
                                                   stream=self.stream)
 
         # Output inference time
-        print("TensorRT inference time: {} ms".format(
-            int(round((time.time() - inference_start_time) * 1000))))
+        # print("TensorRT inference time: {} ms".format(
+        #     int(round((time.time() - inference_start_time) * 1000))))
 
         # And return results
         return pafs, heatmaps
 
-    def __del__(self):
-        self.context.close()
-        self.engine.close()
+    def close_tensorrt(self):
+        # self.context.close()
+        # self.engine.close()
+        pass
