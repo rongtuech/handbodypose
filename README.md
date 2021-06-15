@@ -31,17 +31,18 @@ Repository includes:
 # 4) Future work:
 
 - [x] Combine with MediaPipe lib (Done).  
-- [] Improve Optical flow process. 
-- [] ONNX C++ inference code for full recognizing process (Doing).  
+- [x] Improve Optical flow process. 
+- [x] ONNX/TensorRT python inference code. 
+- [ ] c++ inference.
 
 ------
 # 5) Current result:
-| Model                                                 | FPS        |
-| ----------------------------------------------------- | ---------- |
-| + Optical flow algorithm -  Hand joints detection     | ~ 50       |
-| - Optical flow algorithm -  Hand joints detection     | ~ 26       |
-| + Optical flow algorithm + Hand joints detection      | ~ 22       |
-| - Optical flow algorithm +  Hand joints detection     | ~ 14       |
+| Model                                                 | FPS-PYTORCH | FPS-ONNX    |FPS-TensorRT |
+| ----------------------------------------------------- | ----------  | ----------  | ----------  |
+| + Optical flow algorithm -  Hand joints detection     | ~ 50        |    x        |     x       |
+| - Optical flow algorithm -  Hand joints detection     | ~ 26        |    x        |     x       |
+| + Optical flow algorithm + Hand joints detection      | ~ 22        | ~ 29        | ~ 34        |
+| - Optical flow algorithm +  Hand joints detection     | ~ 14        | ~ 22        | ~ 30        |
 
 ![Pose 10](result_images/img_with_pose_10.jpg)
 ![Pose 2](result_images/img_with_pose_2.jpg)
