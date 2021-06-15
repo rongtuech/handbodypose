@@ -120,19 +120,13 @@ def inference_video(model, parser, is_optical_flow=False):
                 draw_pose(process_image, pose_parser.poses_list, pose_parser.hand_window, body_edges)
                 hand_images = pose_parser.get_hand_head_images(origin_image,ratio_scale, add_width)
 
-                hand_imgs = []
-                for hand_ind, image in enumerate(hand_images):
-                    image, _ = hand_model(cv2.resize(image, (100, 100)))
-                    # cv2.imwrite("./_image/temp_hand_%d.jpg"%ind, image)
-                    hand_imgs.append(image)
-
+                if hand_images is not None:
+                    hand_images, _ = hand_model(hand_images)
                 current_time = (cv2.getTickCount() - current_time) / cv2.getTickFrequency()
 
-                for hand_ind, image in enumerate(hand_imgs):
-                    if hand_ind == 1:
-                        process_image[-100:, :100] = image
-                    elif hand_ind == 0:
-                        process_image[-100:, -100:] = image
+                if hand_images is not None:
+                    process_image[-200:, :100] = cv2.resize(hand_images, (100, 200))
+
                 if mean_time == 0:
                     mean_time = current_time
                 else:
@@ -145,7 +139,7 @@ def inference_video(model, parser, is_optical_flow=False):
         vidcap.release()
         video.release()
         print(count)
-        print(int(1/mean_time*10))
+        print(int(1/mean_time*10)/10)
 
 
 
@@ -168,6 +162,6 @@ if __name__ == "__main__":
     model.cuda()
 
     if parser.is_video:
-        inference_video(model, parser, is_optical_flow=True)
+        inference_video(model, parser, is_optical_flow=False)
     else:
         inference_image(model, parser)

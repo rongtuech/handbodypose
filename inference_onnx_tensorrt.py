@@ -4,7 +4,7 @@ from custom_augmentation import InferenceTransformation
 from utils.utils_image import draw_poses_for_coco, draw_poses_for_optical_flow, draw_pose
 from setting import body_edges, hand_edges
 from model.mini_model import OpenPoseLightning
-# from fast_inference.onnx_inference import PoseDetectionONNX
+from fast_inference.onnx_inference import PoseDetectionONNX
 from fast_inference.onnx_with_tensorrt import PoseDetectionONNXTensorRT
 import argparse
 import cv2
@@ -43,9 +43,10 @@ def inference_image(model, parser):
         image = preprocess_tensor(process_image.copy())
 
         paf, heatmap = model(image)
-        paf = paf[0]
-        heatmap = heatmap[0]
-
+        # paf = paf[0]
+        # heatmap = heatmap[0]
+        paf = paf.reshape((38, 40, 40))
+        heatmap = heatmap.reshape((19, 40, 40))
         pose_parser.parser_pose(paf, heatmap)
         draw_pose(process_image, pose_parser.poses_list, pose_parser.hand_window, body_edges)
         hand_images = pose_parser.get_hand_head_images(origin_image,ratio_scale, add_width)
@@ -137,7 +138,7 @@ def inference_video(model, parser, is_optical_flow=False):
         vidcap.release()
         video.release()
         # print(count)
-        print(int(1/mean_time*10))
+        print(int(1 / mean_time * 10) / 10)
 
 
 
@@ -157,8 +158,8 @@ if __name__ == "__main__":
     parser = parser.parse_args()
 
     if parser.inference_model == "onnx":
-        # model = PoseDetectionONNX(parser.weight)
-        pass
+        model = PoseDetectionONNX(parser.weight)
+        # pass
     elif parser.inference_model == "tensorrt":
         model = PoseDetectionONNXTensorRT(parser.weight, "./openlight.trt")
     else:
@@ -166,7 +167,7 @@ if __name__ == "__main__":
         exit()
 
     if parser.is_video:
-        inference_video(model, parser, is_optical_flow=True)
+        inference_video(model, parser, is_optical_flow=False)
     else:
         inference_image(model, parser)
 
